@@ -576,11 +576,11 @@ extern int co_poll_inner( stCoEpoll_t *ctx,struct pollfd fds[], nfds_t nfds, int
 int poll(struct pollfd fds[], nfds_t nfds, int timeout)
 {
 
-	HOOK_SYS_FUNC( poll );
+	HOOK_SYS_FUNC( poll );  // g_sys_poll_func
 
 	if( !co_is_enable_sys_hook() )
 	{
-		return g_sys_poll_func( fds,nfds,timeout );
+		return g_sys_poll_func( fds,nfds,timeout );  // 实际调用系统函数poll
 	}
 
 	return co_poll_inner( co_get_epoll_ct(),fds,nfds,timeout, g_sys_poll_func);
