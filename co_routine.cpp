@@ -48,13 +48,15 @@ using namespace std;
 stCoRoutine_t *GetCurrCo( stCoRoutineEnv_t *env );
 struct stCoEpoll_t;
 
+// 一个线程内部的全局变量，用来管理协程环境的
 struct stCoRoutineEnv_t
 {
-	stCoRoutine_t *pCallStack[ 128 ];
-	int iCallStackSize;
-	stCoEpoll_t *pEpoll;
+	stCoRoutine_t *pCallStack[ 128 ];  // 最多就128个协程, 第一个元素是self主协程
+	int iCallStackSize;  // 当前创建了多少个协程
+	stCoEpoll_t *pEpoll;  // 该线程的协程调度器
 
 	//for copy stack log lastco and nextco
+	// 在使用共享栈模式拷贝栈内存时记录相应的 coroutine
 	stCoRoutine_t* pending_co;
 	stCoRoutine_t* occupy_co;
 };
@@ -311,16 +313,16 @@ struct stTimeoutItemLink_t;
 struct stTimeoutItem_t;
 struct stCoEpoll_t
 {
-	int iEpollFd;
-	static const int _EPOLL_SIZE = 1024 * 10;
+	int iEpollFd;  // epoll的主fd
+	static const int _EPOLL_SIZE = 1024 * 10;  // 最大能监听的socket数量
 
-	struct stTimeout_t *pTimeout;
+	struct stTimeout_t *pTimeout;  // 时间轮定时器
 
-	struct stTimeoutItemLink_t *pstTimeoutList;
+	struct stTimeoutItemLink_t *pstTimeoutList;  // 已经超时的事件
 
-	struct stTimeoutItemLink_t *pstActiveList;
+	struct stTimeoutItemLink_t *pstActiveList;  // 活跃事件
 
-	co_epoll_res *result; 
+	co_epoll_res *result;  // epoll返回的结果
 
 };
 typedef void (*OnPreparePfn_t)( stTimeoutItem_t *,struct epoll_event &ev, stTimeoutItemLink_t *active );
@@ -482,6 +484,7 @@ struct stCoRoutine_t *co_create_env( stCoRoutineEnv_t * env, const stCoRoutineAt
 		at.stack_size += 0x1000;
 	}
 
+    // 初始化一个协程
 	stCoRoutine_t *lp = (stCoRoutine_t*)malloc( sizeof(stCoRoutine_t) );
 	
 	memset( lp,0,(long)(sizeof(stCoRoutine_t))); 
@@ -544,6 +547,7 @@ void co_release( stCoRoutine_t *co )
 
 void co_swap(stCoRoutine_t* curr, stCoRoutine_t* pending_co);
 
+// 用来激活协程
 void co_resume( stCoRoutine_t *co )
 {
 	stCoRoutineEnv_t *env = co->env;
@@ -558,6 +562,8 @@ void co_resume( stCoRoutine_t *co )
 
 
 }
+
+// 协程主动让出cpu
 void co_yield_env( stCoRoutineEnv_t *env )
 {
 	
@@ -703,13 +709,14 @@ static short EpollEvent2Poll( uint32_t events )
 
 static __thread stCoRoutineEnv_t* gCoEnvPerThread = NULL;
 
+// 初始化线程内全局的协程环境
 void co_init_curr_thread_env()
 {
 	gCoEnvPerThread = (stCoRoutineEnv_t*)calloc( 1, sizeof(stCoRoutineEnv_t) );
 	stCoRoutineEnv_t *env = gCoEnvPerThread;
 
-	env->iCallStackSize = 0;
-	struct stCoRoutine_t *self = co_create_env( env, NULL, NULL,NULL );
+	env->iCallStackSize = 0;  // 目前创建协程个数 0
+	struct stCoRoutine_t *self = co_create_env( env, NULL, NULL,NULL );  // 创建一个self协程
 	self->cIsMain = 1;
 
 	env->pending_co = NULL;
@@ -866,7 +873,7 @@ void FreeEpoll( stCoEpoll_t *ctx )
 
 stCoRoutine_t *GetCurrCo( stCoRoutineEnv_t *env )
 {
-	return env->pCallStack[ env->iCallStackSize - 1 ];
+	return env->pCallStack[ env->iCallStackSize - 1 ];  // 获取的是最新的
 }
 stCoRoutine_t *GetCurrThreadCo( )
 {
@@ -1000,6 +1007,8 @@ void SetEpoll( stCoRoutineEnv_t *env,stCoEpoll_t *ev )
 {
 	env->pEpoll = ev;
 }
+
+// 第一次调用的时候，就会直接对其进行初始化
 stCoEpoll_t *co_get_epoll_ct()
 {
 	if( !co_get_curr_thread_env() )

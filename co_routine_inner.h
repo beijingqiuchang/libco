@@ -45,28 +45,29 @@ struct stShareStack_t
 };
 
 
-
+// 一个协程结构
 struct stCoRoutine_t
 {
 	stCoRoutineEnv_t *env;
 	pfn_co_routine_t pfn;
 	void *arg;
+    // 协程的上下文环境
 	coctx_t ctx;
 
 	char cStart;
 	char cEnd;
-	char cIsMain;
-	char cEnableSysHook;
+	char cIsMain;  // 主协程
+	char cEnableSysHook;  // 是否运行系统hook，非入侵方式使用
 	char cIsShareStack;
 
 	void *pvEnv;
 
 	//char sRunStack[ 1024 * 128 ];
-	stStackMem_t* stack_mem;
+	stStackMem_t* stack_mem;  // 初始化的时候，设置的,运行时的stack空间
 
 
 	//save satck buffer while confilct on same stack_buffer;
-	char* stack_sp; 
+	char* stack_sp; // 用来保存协程运行时的栈空间
 	unsigned int save_size;
 	char* save_buffer;
 

@@ -583,6 +583,7 @@ int poll(struct pollfd fds[], nfds_t nfds, int timeout)
 		return g_sys_poll_func( fds,nfds,timeout );  // 实际调用系统函数poll
 	}
 
+    // 直接调用的就是g_sys_poll_func
 	return co_poll_inner( co_get_epoll_ct(),fds,nfds,timeout, g_sys_poll_func);
 
 }
